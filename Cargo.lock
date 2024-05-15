@@ -104,18 +104,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "de96540e0ebde571dc55c73d60ef407c653844e6f9a1e2fdbd40c07b9252d812"
 
 [[package]]
-name = "partclish-embedded-test"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "embedded-alloc",
- "panic-halt",
- "stm32-metapac",
- "wartcl",
-]
-
-[[package]]
 name = "proc-macro2"
 version = "1.0.81"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -208,3 +196,15 @@ dependencies = [
 [[package]]
 name = "wartcl"
 version = "0.1.0"
+
+[[package]]
+name = "wartcl-embedded-test"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "embedded-alloc",
+ "panic-halt",
+ "stm32-metapac",
+ "wartcl",
+]

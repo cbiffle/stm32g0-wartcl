@@ -7,7 +7,7 @@ extern crate alloc;
 
 use core::{mem::MaybeUninit, ptr::addr_of};
 
-use alloc::{boxed::Box, vec::Vec};
+use alloc::boxed::Box;
 use panic_halt as _;
 use wartcl::{empty, FlowChange, Env, Value};
 use stm32_metapac as device;

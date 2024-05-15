@@ -1,5 +1,5 @@
 [package]
-name = "partclish-embedded-test"
+name = "wartcl-embedded-test"
 authors = ["Cliff L. Biffle <code@cliffle.com>"]
 version = "0.1.0"
 edition = "2021"
@@ -12,13 +12,11 @@ panic-halt = "0.2.0"
 stm32-metapac = {version = "15.0", features = ["rt", "pac", "stm32h743zi"]}
 
 [dependencies.wartcl]
-path = "../../../proj/partclish"
+path = "../../../proj/wartcl"
 default-features = false
-features = [
-]
 
 [[bin]]
-name = "partclish-embedded-test"
+name = "wartcl-embedded-test"
 test = false
 bench = false
 
