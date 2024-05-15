@@ -56,7 +56,7 @@ fn main() -> ! {
     panic!("bad");
 }
 
-fn cmd_setpin(_interp: &mut Env, args: Vec<Box<Value>>) -> Result<Box<Value>, FlowChange> {
+fn cmd_setpin(_interp: &mut Env, args: &mut [Box<Value>]) -> Result<Box<Value>, FlowChange> {
     let port = &*args[1];
     let bank = match port {
         b"b" | b"B" => device::GPIOB,
@@ -70,7 +70,7 @@ fn cmd_setpin(_interp: &mut Env, args: Vec<Box<Value>>) -> Result<Box<Value>, Fl
     Ok(empty())
 }
 
-fn cmd_clrpin(_interp: &mut Env, args: Vec<Box<Value>>) -> Result<Box<Value>, FlowChange> {
+fn cmd_clrpin(_interp: &mut Env, args: &mut [Box<Value>]) -> Result<Box<Value>, FlowChange> {
     let port = &*args[1];
     let bank = match port {
         b"b" | b"B" => device::GPIOB,
@@ -84,7 +84,7 @@ fn cmd_clrpin(_interp: &mut Env, args: Vec<Box<Value>>) -> Result<Box<Value>, Fl
     Ok(empty())
 }
 
-fn cmd_delay(_interp: &mut Env, args: Vec<Box<Value>>) -> Result<Box<Value>, FlowChange> {
+fn cmd_delay(_interp: &mut Env, args: &mut [Box<Value>]) -> Result<Box<Value>, FlowChange> {
     let interval = wartcl::int(&args[1]);
     // Assuming our clock frequency is 64 MHz.
     cortex_m::asm::delay(interval as u32 * 64_000);
