@@ -47,7 +47,7 @@ fn main() -> ! {
     tcl.register(b"clrpin", 3, cmd_clrpin);
     tcl.register(b"delay", 2, cmd_delay);
     let _ = tcl.eval(br#"
-            while {== 0 0} {
+            while {subst 1} {
                 setpin b 0
                 delay 500
                 clrpin b 0
