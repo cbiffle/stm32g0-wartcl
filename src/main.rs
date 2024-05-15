@@ -46,14 +46,13 @@ fn main() -> ! {
     tcl.register(b"setpin", 3, cmd_setpin);
     tcl.register(b"clrpin", 3, cmd_clrpin);
     tcl.register(b"delay", 2, cmd_delay);
-    let _ = tcl.eval(br#"
-            while {subst 1} {
-                setpin b 0
-                delay 500
-                clrpin b 0
-                delay 500
-            }
-        "#);
+    let _ = tcl.eval(b"\
+            while {subst 1} {\
+                setpin b 0\n\
+                delay 500\n\
+                clrpin b 0\n\
+                delay 500\
+            }\n");
     panic!("bad");
 }
 
