@@ -156,6 +156,18 @@ dependencies = [
 ]
 
 [[package]]
+name = "stm32g0-wartcl"
+version = "0.1.0"
+dependencies = [
+ "cortex-m",
+ "cortex-m-rt",
+ "embedded-alloc",
+ "panic-halt",
+ "stm32-metapac",
+ "wartcl",
+]
+
+[[package]]
 name = "syn"
 version = "1.0.109"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -196,15 +208,3 @@ dependencies = [
 [[package]]
 name = "wartcl"
 version = "0.1.0"
-
-[[package]]
-name = "wartcl-embedded-test"
-version = "0.1.0"
-dependencies = [
- "cortex-m",
- "cortex-m-rt",
- "embedded-alloc",
- "panic-halt",
- "stm32-metapac",
- "wartcl",
-]
