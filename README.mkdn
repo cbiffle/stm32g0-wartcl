@@ -30,4 +30,4 @@ blink!
 >>>
 ```
 
-[`wartcl`]: https://crates.io/crate/wartcl
+[`wartcl`]: https://crates.io/crates/wartcl
