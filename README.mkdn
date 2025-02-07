@@ -1,0 +1,33 @@
+# `wartcl` STM32G0 example
+
+This is an example of using [`wartcl`] on a small microcontroller --- in this
+case, the STM32G031K8 (on the NUCLEO-G031K8 board). This program brings up a
+basic REPL on the microcontroller, connected to a serial port.
+
+Sample session in a terminal emulator:
+
+```
+>>> heap
+{used 1104 free 2480}
+>>> pinmode C 6 output
+>>> proc ledon {} { setpin C 6 }
+>>> proc ledoff {} { clrpin C 6 }
+>>> set x 0
+0
+>>> while {< $x 5} {
+...   puts blink!
+...   ledon
+...   delay 500
+...   ledoff
+...   delay 500
+...   incr x
+... }
+blink!
+blink!
+blink!
+blink!
+blink!
+>>>
+```
+
+[`wartcl`]: https://crates.io/crate/wartcl
