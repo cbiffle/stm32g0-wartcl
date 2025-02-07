@@ -110,9 +110,10 @@ fn main() -> ! {
                         emit_s(b"ERROR\r\n");
                     }
                     Ok(result) => {
-                        emit_s(b"> ");
-                        emit_s(&result);
-                        emit_s(b"\r\n");
+                        if !result.is_empty() {
+                            emit_s(&result);
+                            emit_s(b"\r\n");
+                        }
                     }
                 }
                 buf.clear();
