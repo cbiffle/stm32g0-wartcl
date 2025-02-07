@@ -3,6 +3,7 @@ name = "stm32g0-wartcl"
 authors = ["Cliff L. Biffle <code@cliffle.com>"]
 version = "0.1.0"
 edition = "2021"
+license = "MPL-2.0"
 
 [dependencies]
 cortex-m = {version = "0.7.4", features = ["inline-asm", "critical-section-single-core"]}
