@@ -65,6 +65,7 @@ fn main() -> ! {
 
     let mut buf = vec![];
     let mut tcl = Env::default();
+    tcl.register(b"pinmode", 4, cmd_pinmode);
     tcl.register(b"setpin", 3, cmd_setpin);
     tcl.register(b"clrpin", 3, cmd_clrpin);
     tcl.register(b"delay", 2, cmd_delay);
@@ -186,6 +187,22 @@ fn cmd_heap(_interp: &mut Env, _args: &mut [OwnedValue]) -> Result<OwnedValue, F
     text.extend_from_slice(&wartcl::int_value(free as wartcl::Int));
     text.push(b'}');
     Ok(text.into())
+}
+
+fn cmd_pinmode(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
+    let port = &*args[1];
+    let bank = parse_port(port)?;
+    let pin = wartcl::int(&args[2]);
+    if pin < 0 || pin > 15 {
+        return Err(FlowChange::Error);
+    }
+    let m = match &*args[3] {
+        b"output" | b"out" => Moder::OUTPUT,
+        b"input" | b"in" => Moder::INPUT,
+        _ => return Err(FlowChange::Error),
+    };
+    bank.moder().modify(|v| v.set_moder(pin as usize, m));
+    Ok(empty())
 }
 
 fn cmd_setpin(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
