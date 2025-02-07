@@ -9,7 +9,7 @@ cortex-m = {version = "0.7.4", features = ["inline-asm", "critical-section-singl
 cortex-m-rt = {version = "0.7.1"}
 embedded-alloc = "0.5.1"
 panic-halt = "0.2.0"
-stm32-metapac = {version = "15.0", features = ["rt", "pac", "stm32g030f6"]}
+stm32-metapac = {version = "15.0", features = ["rt", "pac", "stm32g031k8"]}
 
 [dependencies.wartcl]
 version = "0.1.0"

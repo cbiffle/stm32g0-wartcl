@@ -28,8 +28,10 @@ fn main() -> ! {
     }
 
     let rcc = device::RCC;
+    rcc.apbenr1().write(|w| {
+        w.set_usart2en(true);
+    });
     rcc.apbenr2().write(|w| {
-        w.set_usart1en(true);
         w.set_syscfgen(true);
     });
     rcc.gpioenr().modify(|v| {
@@ -41,16 +43,16 @@ fn main() -> ! {
         w.0 |= (1 << 4) | (1 << 3);
         w.set_mem_mode(MemMode::MAIN_FLASH);
     });
-    device::GPIOA.afr(1).write(|w| {
-        w.set_afr(9 - 8, 1); // TX
-        w.set_afr(10 - 8, 1); // RX
+    device::GPIOA.afr(0).write(|w| {
+        w.set_afr(2, 1); // TX
+        w.set_afr(3, 1); // RX
     });
     device::GPIOA.moder().modify(|w| {
-        w.set_moder(9, Moder::ALTERNATE);
-        w.set_moder(10, Moder::ALTERNATE);
+        w.set_moder(2, Moder::ALTERNATE);
+        w.set_moder(3, Moder::ALTERNATE);
     });
     let brr = u16::try_from(16_000_000_u32 / 19_200).unwrap();
-    let uart = device::USART1;
+    let uart = device::USART2;
     uart.brr().write(|w| w.set_brr(brr));
     uart.cr1().write(|w| {
         w.set_fifoen(true);
@@ -120,7 +122,7 @@ fn main() -> ! {
 }
 
 fn emit(byte: u8) {
-    let uart = device::USART1;
+    let uart = device::USART2;
     // Wait for TXE == TXFNF == FIFO not full
     while !uart.isr().read().txe() {}
     uart.tdr().write(|w| w.set_dr(u16::from(byte)));
@@ -133,7 +135,7 @@ fn emit_s(bytes: &[u8]) {
 }
 
 fn receive() -> u8 {
-    let uart = device::USART1;
+    let uart = device::USART2;
     loop {
         let isr = uart.isr().read();
         if isr.ore() || isr.fe() || isr.ne() {
