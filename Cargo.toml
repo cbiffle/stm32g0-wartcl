@@ -12,7 +12,7 @@ panic-halt = "0.2.0"
 stm32-metapac = {version = "15.0", features = ["rt", "pac", "stm32g030f6"]}
 
 [dependencies.wartcl]
-path = "../../../proj/wartcl"
+version = "0.1.0"
 default-features = false
 features = [
     "arithmetic",

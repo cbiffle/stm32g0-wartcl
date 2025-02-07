@@ -208,3 +208,5 @@ dependencies = [
 [[package]]
 name = "wartcl"
 version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "9dadc29f6ad55c7688eb761abf7ed6f8740dd2d6ae60f1f60c36ac660c4cbbed"
