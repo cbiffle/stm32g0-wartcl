@@ -3,7 +3,7 @@
 
 extern crate alloc;
 
-use alloc::vec;
+use alloc::{vec, vec::Vec};
 use core::{mem::MaybeUninit, ptr::addr_of_mut};
 use embedded_alloc::Heap;
 use panic_halt as _;
@@ -207,13 +207,29 @@ fn chkpin(pin: i32) -> Result<usize, FlowChange> {
 
 /// `heap` - Returns a string describing the used and free bytes in the heap.
 fn cmd_heap(_interp: &mut Env, _args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
-    let used = HEAP.used();
-    let free = HEAP.free();
-    let mut text = b"{used ".to_vec();
-    text.extend_from_slice(&wartcl::int_value(used as wartcl::Int));
+    // Collect heap stats before doing anything that can allocate.
+    let used = HEAP.used() as wartcl::Int;
+    let free = HEAP.free() as wartcl::Int;
+
+    // We're going to some lengths to avoid reallocating. This is probably not
+    // necessary in this command, but provides an example for more complex
+    // cases.
+    //
+    // First, allocate a buffer with enough space for our rendered string. (If
+    // we get this math wrong, the code below will wind up having to reallocate
+    // the vec behind the scenes.)
+    let mut text = Vec::with_capacity(
+        b"{used  free }".len()
+        + wartcl::int_value_len(used)
+        + wartcl::int_value_len(free)
+    );
+    // Then, render the string in-place:
+    text.extend_from_slice(b"{used ");
+    wartcl::int_value_into(used, &mut text);
     text.extend_from_slice(b" free ");
-    text.extend_from_slice(&wartcl::int_value(free as wartcl::Int));
+    wartcl::int_value_into(free, &mut text);
     text.push(b'}');
+
     Ok(text.into())
 }
 
