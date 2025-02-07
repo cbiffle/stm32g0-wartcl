@@ -5,44 +5,46 @@
 
 extern crate alloc;
 
-use core::{mem::MaybeUninit, ptr::addr_of};
-
 use alloc::vec;
-use device::{gpio::vals::Moder, syscfg::vals::MemMode};
-use panic_halt as _;
-use wartcl::{empty, Env, FlowChange, OwnedValue, Token, Tokenizer, Value};
-use stm32_metapac as device;
+use core::{mem::MaybeUninit, ptr::addr_of_mut};
 use embedded_alloc::Heap;
+use panic_halt as _;
+use stm32_metapac as device;
+use wartcl::{empty, Env, FlowChange, OwnedValue, Token, Tokenizer, Value};
 
+use device::gpio::vals::Moder;
+
+/// Make Rust's alloc crate aware of our allocator implementation.
 #[global_allocator]
 static HEAP: Heap = Heap::empty();
 
+const HEAP_SIZE: usize = 3 * 1024 + 512; // 3.5 kiB
+
 #[cortex_m_rt::entry]
 fn main() -> ! {
+    // Initialize the global heap allocator.
     {
-        const HEAP_SIZE: usize = 3 * 1024 + 512;
         static mut HEAP_MEM: [MaybeUninit<u8>; HEAP_SIZE] = [MaybeUninit::uninit(); HEAP_SIZE];
         unsafe {
-            HEAP.init(addr_of!(HEAP_MEM) as usize, HEAP_SIZE);
+            HEAP.init(addr_of_mut!(HEAP_MEM) as usize, HEAP_SIZE);
         }
     }
 
+    // Do hardware setup, turning things on and so forth.
     let rcc = device::RCC;
     rcc.apbenr1().write(|w| {
+        // Make USART2 available.
         w.set_usart2en(true);
     });
-    rcc.apbenr2().write(|w| {
-        w.set_syscfgen(true);
-    });
     rcc.gpioenr().modify(|v| {
+        // Make all three GPIO ports available.
         v.set_gpioaen(true);
         v.set_gpioben(true);
         v.set_gpiocen(true);
     });
-    device::SYSCFG.cfgr1().write(|w| {
-        w.0 |= (1 << 4) | (1 << 3);
-        w.set_mem_mode(MemMode::MAIN_FLASH);
-    });
+
+    // Configure USART2's TX and RX to connect to the "virtual comm port" on the
+    // STLink.
     device::GPIOA.afr(0).write(|w| {
         w.set_afr(2, 1); // TX
         w.set_afr(3, 1); // RX
@@ -51,6 +53,8 @@ fn main() -> ! {
         w.set_moder(2, Moder::ALTERNATE);
         w.set_moder(3, Moder::ALTERNATE);
     });
+
+    // Configure the UART for 19_200 baud.
     let brr = u16::try_from(16_000_000_u32 / 19_200).unwrap();
     let uart = device::USART2;
     uart.brr().write(|w| w.set_brr(brr));
@@ -61,9 +65,7 @@ fn main() -> ! {
         w.set_ue(true);
     });
 
-    cortex_m::asm::isb();
-
-    let mut buf = vec![];
+    // Set up our Tcl environment with our custom commands.
     let mut tcl = Env::default();
     tcl.register(b"pinmode", 4, cmd_pinmode);
     tcl.register(b"setpin", 3, cmd_setpin);
@@ -71,54 +73,70 @@ fn main() -> ! {
     tcl.register(b"delay", 2, cmd_delay);
     tcl.register(b"puts", 0, cmd_puts);
     tcl.register(b"heap", 1, cmd_heap);
+
+    // Buffer for accumulating user input:
+    let mut buf = vec![];
     loop {
-        match receive() {
-            8 | 127 => {
-                if buf.pop().is_some() {
-                    emit(8);
-                    emit(b' ');
-                    emit(8);
-                } else {
-                    emit(7);
-                }
-                continue;
-            }
-            c => {
-                buf.push(c);
-                emit(c);
-                if c == b'\r' {
-                    emit(b'\n');
-                }
-                if c != b'\r' && c != b'\n' {
-                    // Don't bother tokenizing until end of line.
-                    continue;
-                }
-            }
-        }
+        emit_s(b">>> ");
 
-        let mut p = Tokenizer::new(&buf);
-        while let Some(tok) = p.next() {
-            if tok == Token::Error && !p.at_end() {
-                buf.clear();
-                break;
-            }
-
-            if matches!(tok, Token::CmdSep(b'\r' | b'\n')) {
-                let r = tcl.eval(&buf);
-                match r {
-                    Err(_) => {
-                        emit_s(b"ERROR\r\n");
+        'reading:
+        loop {
+            match receive() {
+                8 | 127 => {
+                    if buf.pop().is_some() {
+                        // Rubout
+                        emit(8);
+                        emit(b' ');
+                        emit(8);
+                    } else {
+                        // Complain
+                        emit(7);
                     }
-                    Ok(result) => {
-                        if !result.is_empty() {
-                            emit_s(&result);
-                            emit_s(b"\r\n");
+                    continue 'reading;
+                }
+                c => {
+                    buf.push(c);
+                    emit(c);
+                    if c == b'\r' {
+                        // Add newlines, makes terminal emulators happier
+                        emit(b'\n');
+                    }
+                    if c != b'\r' && c != b'\n' {
+                        // Don't bother tokenizing until end of line.
+                        continue 'reading;
+                    }
+                }
+            }
+
+            // We just got an end-of-line character. The input _might_ be
+            // complete... or might span lines. To find out, we hit it with the
+            // tokenizer.
+            let mut p = Tokenizer::new(&buf);
+            while let Some(tok) = p.next() {
+                if tok == Token::Error && !p.at_end() {
+                    buf.clear();
+                    continue 'reading;
+                }
+
+                if matches!(tok, Token::CmdSep(b'\r' | b'\n')) {
+                    let r = tcl.eval(&buf);
+                    match r {
+                        Err(_) => {
+                            emit_s(b"ERROR\r\n");
+                        }
+                        Ok(result) => {
+                            if !result.is_empty() {
+                                emit_s(&result);
+                                emit_s(b"\r\n");
+                            }
                         }
                     }
+                    buf.clear();
+                    break 'reading;
                 }
-                buf.clear();
-                break;
             }
+            // The input spans lines, so give a continuation prompt:
+            emit_s(b"... ");
         }
     }
 }
@@ -179,6 +197,7 @@ fn parse_port(port: &Value) -> Result<device::gpio::Gpio, FlowChange> {
     })
 }
 
+/// `heap` - Returns a string describing the used and free bytes in the heap.
 fn cmd_heap(_interp: &mut Env, _args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let used = HEAP.used();
     let free = HEAP.free();
@@ -190,6 +209,7 @@ fn cmd_heap(_interp: &mut Env, _args: &mut [OwnedValue]) -> Result<OwnedValue, F
     Ok(text.into())
 }
 
+/// `pinmode PORT PIN MODE` - sets a GPIO pin to input or output
 fn cmd_pinmode(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let port = &*args[1];
     let bank = parse_port(port)?;
@@ -206,6 +226,7 @@ fn cmd_pinmode(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue,
     Ok(empty())
 }
 
+/// `setpin PORT PIN` - sets a pin high
 fn cmd_setpin(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let port = &*args[1];
     let bank = parse_port(port)?;
@@ -217,6 +238,7 @@ fn cmd_setpin(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, 
     Ok(empty())
 }
 
+/// `clrpin PORT PIN` - sets a pin low
 fn cmd_clrpin(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let port = &*args[1];
     let bank = parse_port(port)?;
@@ -228,9 +250,10 @@ fn cmd_clrpin(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, 
     Ok(empty())
 }
 
+/// `delay MS` - waits for approximately a certain number of milliseconds.
 fn cmd_delay(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let interval = wartcl::int(&args[1]);
-    // Assuming our clock frequency is 64 MHz.
-    cortex_m::asm::delay(interval as u32 * 64_000);
+    // Assuming our clock frequency is 16 MHz.
+    cortex_m::asm::delay(interval as u32 * 16_000);
     Ok(empty())
 }
