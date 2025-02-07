@@ -92,6 +92,7 @@ fn main() -> ! {
                     }
                     continue 'reading;
                 }
+                3 => break 'reading,
                 c => {
                     buf.push(c);
                     emit(c);
