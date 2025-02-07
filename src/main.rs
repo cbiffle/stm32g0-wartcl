@@ -29,6 +29,7 @@ fn main() -> ! {
     }
 
     // Do hardware setup, turning things on and so forth.
+    setup_clock_tree();
     let rcc = device::RCC;
     rcc.apbenr1().write(|w| {
         // Make USART2 available.
@@ -53,7 +54,7 @@ fn main() -> ! {
     });
 
     // Configure the UART for 19_200 baud.
-    let brr = u16::try_from(16_000_000_u32 / 19_200).unwrap();
+    let brr = u16::try_from(64_000_000_u32 / 19_200).unwrap();
     let uart = device::USART2;
     uart.brr().write(|w| w.set_brr(brr));
     uart.cr1().write(|w| {
@@ -268,7 +269,85 @@ fn cmd_clrpin(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, 
 /// `delay MS` - waits for approximately a certain number of milliseconds.
 fn cmd_delay(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let interval = wartcl::int(&args[1]);
-    // Assuming our clock frequency is 16 MHz.
-    cortex_m::asm::delay(interval as u32 * 16_000);
+    // Assuming our clock frequency is 64 MHz.
+    cortex_m::asm::delay(interval as u32 * 64_000);
     Ok(empty())
+}
+
+fn setup_clock_tree() {
+    use device::rcc::vals::{Pllsrc, Sw, Pllm, Plln, Pllr, Pllp, Pllq};
+    use device::flash::vals::Latency;
+
+    let flash = device::FLASH;
+    let rcc = device::RCC;
+    // We come out of reset at 16 MHz on HSI. We would like to be running at 64
+    // MHz.
+    //
+    // This implies that we need to boost the clock speed by 4 using the PLL.
+    //
+    // Note: to achieve this, we must be in voltage range 1 (required for
+    // frequencies above 16 MHz).
+    //
+    // The PLL's input frequency can go up to 16 MHz, and its internal VCO must
+    // be between 64 and 344 MHz (in voltage range 1). Its R-tap is the one that
+    // feeds the CPU and buses, so we need the R output to be 64 MHz. The R
+    // divisor is limited to integers between 2 and 8 (inclusive), so, we can
+    // get what we want by
+    //
+    // - Setting the PLL input divisor (VCO multiplier) to 8x for an fVCO of 128
+    //   MHz.
+    // - Setting the R divisor to /2 for a 64 MHz output.
+    // - Leaving the P and Q taps off. (Q tap doesn't actually exist on our
+    //   part.)
+
+    // The part resets into voltage range 1, delightfully. This means we don't
+    // have to adjust it.
+
+    // Adjust our wait states to reflect our target voltage + freq combination.
+    // At 64 MHz we'll need 2 wait states. We come out of reset at 0 wait
+    // states, so we must override it.
+    //
+    // Note: the SVD apparently incorrectly models an undocumented reserved bit
+    // in this register (bit 18), so DO NOT use `write` or `reset`. If you clear
+    // bit 18, bad shit will happen to you -- it interferes with debugger
+    // access.
+    flash.acr().modify(|w| {
+        w.set_latency(Latency::WS2);
+        // Prefetch is off at reset, but helps at higher wait states.
+        w.set_prften(true);
+        // Cache is _on_ at reset, no action required.
+    });
+
+    // Fire up the PLL.
+    // First, set up our divisors.
+    rcc.pllcfgr().write(|w| {
+        // Source input from HSI16.
+        w.set_pllsrc(Pllsrc::HSI);
+        // Leave input undivided.
+        w.set_pllm(Pllm::DIV1);
+        // Multiply that by 8 in the VCO for 128 MHz.
+        w.set_plln(Plln::MUL8);
+        // Configure the R-tap to 48 MHz output by dividing by 2. Configure P
+        // and Q to valid configurations while we're at it.
+        w.set_pllr(Pllr::DIV2);
+        w.set_pllp(Pllp::DIV2);
+        w.set_pllq(Pllq::DIV2);
+        // But we only actually turn the R tap on.
+        w.set_pllren(true);
+    });
+    // Switch it on at the RCC and wait for it to come up. RCC should still be
+    // at its reset values, so we don't need to RMW it.
+    rcc.cr().write(|w| {
+        w.set_pllon(true);
+    });
+    while !rcc.cr().read().pllrdy() {
+        // spin
+    }
+    // Now switch over to it.
+    rcc.cfgr().write(|w| {
+        w.set_sw(Sw::PLL1_R);
+    });
+    while rcc.cfgr().read().sws() != Sw::PLL1_R {
+        // spin
+    }
 }
