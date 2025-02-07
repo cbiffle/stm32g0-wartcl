@@ -1,8 +1,6 @@
 #![no_std]
 #![no_main]
 
-#![allow(clippy::manual_range_contains)]
-
 extern crate alloc;
 
 use alloc::vec;
@@ -197,6 +195,15 @@ fn parse_port(port: &Value) -> Result<device::gpio::Gpio, FlowChange> {
     })
 }
 
+#[inline(always)] // expose range of usize to calling function
+fn chkpin(pin: i32) -> Result<usize, FlowChange> {
+    if (0..=15).contains(&pin) {
+        Ok(pin as usize)
+    } else {
+        Err(FlowChange::Error)
+    }
+}
+
 /// `heap` - Returns a string describing the used and free bytes in the heap.
 fn cmd_heap(_interp: &mut Env, _args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let used = HEAP.used();
@@ -213,16 +220,13 @@ fn cmd_heap(_interp: &mut Env, _args: &mut [OwnedValue]) -> Result<OwnedValue, F
 fn cmd_pinmode(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let port = &*args[1];
     let bank = parse_port(port)?;
-    let pin = wartcl::int(&args[2]);
-    if pin < 0 || pin > 15 {
-        return Err(FlowChange::Error);
-    }
+    let pin = chkpin(wartcl::int(&args[2]))?;
     let m = match &*args[3] {
         b"output" | b"out" => Moder::OUTPUT,
         b"input" | b"in" => Moder::INPUT,
         _ => return Err(FlowChange::Error),
     };
-    bank.moder().modify(|v| v.set_moder(pin as usize, m));
+    bank.moder().modify(|v| v.set_moder(pin, m));
     Ok(empty())
 }
 
@@ -230,11 +234,8 @@ fn cmd_pinmode(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue,
 fn cmd_setpin(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let port = &*args[1];
     let bank = parse_port(port)?;
-    let pin = wartcl::int(&args[2]);
-    if pin < 0 || pin > 15 {
-        return Err(FlowChange::Error);
-    }
-    bank.bsrr().write(|v| v.set_bs(pin as usize, true));
+    let pin = chkpin(wartcl::int(&args[2]))?;
+    bank.bsrr().write(|v| v.set_bs(pin, true));
     Ok(empty())
 }
 
@@ -242,11 +243,8 @@ fn cmd_setpin(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, 
 fn cmd_clrpin(_interp: &mut Env, args: &mut [OwnedValue]) -> Result<OwnedValue, FlowChange> {
     let port = &*args[1];
     let bank = parse_port(port)?;
-    let pin = wartcl::int(&args[2]);
-    if pin < 0 || pin > 15 {
-        return Err(FlowChange::Error);
-    }
-    bank.bsrr().write(|v| v.set_br(pin as usize, true));
+    let pin = chkpin(wartcl::int(&args[2]))?;
+    bank.bsrr().write(|v| v.set_br(pin, true));
     Ok(empty())
 }
 
