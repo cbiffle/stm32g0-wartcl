@@ -5,3 +5,4 @@ MEMORY {
 }
 
 _stack_start = ORIGIN(RAM);
+_stack_end = ORIGIN(STACK);
