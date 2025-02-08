@@ -1,8 +1,19 @@
 # `wartcl` STM32G0 example
 
 This is an example of using [`wartcl`] on a small microcontroller --- in this
-case, the STM32G031K8 (on the NUCLEO-G031K8 board). This program brings up a
-basic REPL on the microcontroller, connected to a serial port.
+case, the STM32G031K8 (on the NUCLEO-G031K8 board).
+
+Features:
+
+- Runs a basic Tcl REPL (shell) on the microcontroller, connected to a serial
+  port. (Specifically, the "virtual COM port" of the integrated STlink, at
+  19,200 baud.)
+
+- Includes basic commands for manipulating GPIOs and delaying.
+
+- Fits in just over 10 kiB flash.
+
+- Leaves just over 2 kiB RAM free for your programs.
 
 Sample session in a terminal emulator:
 
